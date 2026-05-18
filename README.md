@@ -1,6 +1,8 @@
 # Atomic Crystal Growth
 
-A completely unsupervised Chinese word segmentation algorithm inspired by crystal growth in physics. **No dictionary, no annotated data, zero external dependencies** — only Python's standard library. It works by simulating particles (characters) that spontaneously bond based on statistical forces, gradually forming multi-character words through iterative growth.
+Traditional Chinese word segmentation relies on dictionaries or supervised models. This project takes a different path: let structure emerge from the text itself. By viewing characters as particles in a statistical field, I simulate crystal growth – particles merge when the net energy exceeds a dynamic threshold, and weak bonds are periodically dissolved. No dictionary, no training, just the intrinsic statistics of the text.
+
+---
 
 ## How it works
 
