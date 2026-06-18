@@ -59,6 +59,7 @@ Thumbs.db
 *.log
 
 # Others
+tests/
 docs/
 architecture.md
 prd.md
