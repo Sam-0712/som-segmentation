@@ -41,7 +41,7 @@ def _check_deps() -> None:
 _check_deps()
 
 
-# ── 命令分发 ──────────────────────────────────────────────────────────────────
+# ── Distribution ──────────────────────────────────────────────────────────────────
 
 def main() -> None:
     args = sys.argv[1:]
@@ -52,12 +52,9 @@ def main() -> None:
         text = open(p('corpus/example.txt'), encoding='utf-8').read()
         g = AtomicCrystalGrowth(text)
         r = g.run()
-        print(f"\nSample segmentation (first 15 sentences):")
-        tbl = [[str(i + 1),
-                ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')]
-               for i, s in enumerate(r[:15])]
-        print(_make_table(tbl, headers=['#', 'Segmentation'],
-                          colalign=('center', 'left')))
+        print(f"\nSample segmentation:")
+        tbl = [[str(i + 1), ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')] for i, s in enumerate(r[:15])]
+        print(_make_table(tbl, headers=['#', 'Segmentation'], colalign=('center', 'left')))
 
     elif cmd == 'eval':
         path = args[1] if len(args) > 1 else p('corpus/example.txt')

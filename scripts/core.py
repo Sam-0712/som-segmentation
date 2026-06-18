@@ -4,10 +4,10 @@ Atomic Crystal Growth — Unsupervised Chinese Word Segmentation
 A physics-inspired algorithm that treats text as a particle system.
 Particles (characters/substrings) spontaneously bond based on
 statistical forces: NPMI (affinity) drives merging, contextual entropy
-(ionization) resists it. Greedy growth + periodic dissolution.
+(ionization) resists it. Viterbi DP + damped annealing + periodic dissolution.
 
   E_net = NPMI - ionization * mass_factor
-  merge if E_net > threshold & is local maximum
+  merge if E_net > threshold & Viterbi-optimal
 """
 from __future__ import annotations
 import re, sys, time, collections, math
@@ -31,19 +31,13 @@ def _make_table(rows, headers, **kwargs):
 # ═══════════════════════════════════════════════════════════════════════════
 
 class Config:
-    """Hyper-parameters for the crystal growth algorithm.
-
-    Key parameters:
-        mass_base: controls merge resistance for longer particles (6^(len1+len2-2))
-        atom_*: personality-based threshold adjustment for single characters
-        dissolution_*: anti-entropy mechanism that splits weak bonds
-    """
+    """Hyper-parameters for the crystal growth algorithm."""
     def __init__(self) -> None:
         # ─── Threshold ───
         self.base_threshold: float = 0.0
-        self.threshold_decay: float = 0.01          # γ per round
+        self.threshold_decay: float = 0.01              # γ per round
 
-        # ─── Mass factor: base ** (len1+len2-2) ───
+        # ─── Mass factor ───
         self.mass_base: float = 6.0
 
         # ─── Atom personality ───
@@ -57,10 +51,14 @@ class Config:
         self.entropy_alpha: float = 1e-6
 
         # ─── Iteration ───
-        self.max_iterations: int = 50
+        self.max_iterations: int = 80
 
         # ─── Polarity ───
         self.polarity_weight: float = 0.15
+
+        # ─── Viterbi ───
+        self.viterbi_merge_bias: float = 0.25   # bonus per merge in Viterbi DP
+        self.viterbi_relax_factor: float = 0.70 # threshold relaxation (1.0=strict)
 
         # ─── Convergence detection ───
         self.convergence_window: int = 5
@@ -74,9 +72,23 @@ class Config:
         self.dissolution_start_round: int = 3
         self.dissolution_independence_ratio: float = 0.15
 
+        # ─── Annealing schedule ───
+        self.damping_rate: float = 0.08         # frequency decay rate (0=constant)
+        self.damping_amp_rate: float = 0.02     # amplitude growth per round
+        self.damping_max_amp: float = 0.25      # max oscillation amplitude
+
     def get_threshold(self, it: int) -> float:
-        """Dynamic threshold: linear decay + cosine oscillation."""
-        m = 0.85 + 0.15 * math.cos(0.3 * it)
+        """Dynamic threshold: linear decay + damped cosine oscillation.
+
+        Early rounds: fast, shallow oscillation → rapid exploration.
+        Later rounds: slow, deep oscillation → long annealing cycles.
+        """
+        if self.damping_rate > 0:
+            amp = min(self.damping_amp_rate * it, self.damping_max_amp)
+            freq = 0.3 * math.exp(-self.damping_rate * it)
+            m = 1.0 - amp + amp * math.cos(freq * it)
+        else:
+            m = 0.85 + 0.15 * math.cos(0.3 * it)
         return self.base_threshold - self.threshold_decay * it * m
 
     def get_mass_factor(self, l1: int, l2: int) -> float:
@@ -116,8 +128,8 @@ class AtomicCrystalGrowth:
         self.total_particles: int = 0
         self.total_pairs: int = 0
         self.vocab_size: int = 0
-        self.freq_1: Dict[str, int] = {}            # unigram frequencies
-        self.freq_2: Dict[Tuple[str, str], int] = {} # bigram frequencies
+        self.freq_1: Dict[str, int] = {}               # unigram frequencies
+        self.freq_2: Dict[Tuple[str, str], int] = {}   # bigram frequencies
         self.left_n: Dict[str, Dict[str, int]] = {}    # left neighbor distributions
         self.right_n: Dict[str, Dict[str, int]] = {}   # right neighbor distributions
         self.atom_per: Dict[str, float] = {}           # P(alone) for single chars
@@ -132,18 +144,7 @@ class AtomicCrystalGrowth:
 
     @staticmethod
     def _preprocess(raw: str) -> List[List[str]]:
-        """Split raw text into sentences → atomic particles.
-
-        Sentence boundaries:  。？！.?!<>\\n
-        Each sentence is split into particles:
-          - Bracket-enclosed expressions: (1), [2.3]
-          - Consecutive ASCII alphanumeric tokens: AI, 2026
-          - Non-word sequences (punctuation, emoji, etc.)
-          - Fallback: any single non-whitespace character (Chinese chars land here)
-
-        Note: relies on Python 3's default re.UNICODE flag;
-        ``\\w`` matches Unicode word characters including CJK.
-        """
+        """Split raw text into sentences → atomic particles."""
         sents = [s.strip() for s in re.split(r'[。？！.?!<>\n]+', raw) if s.strip()]
         result: List[List[str]] = []
         for s in sents:
@@ -258,7 +259,9 @@ class AtomicCrystalGrowth:
         p_a = self.freq_1[a] / self.total_particles
         p_b = self.freq_1[b] / self.total_particles
         pmi = math.log2(pp / (p_a * p_b))
-        return pmi / (-math.log2(pp)) if pp > 0 else 0.0
+        # Guard: when pp ≈ 1 (pair is the entire corpus), NPMI → 1.0
+        denom = -math.log2(max(pp, 1e-16))
+        return pmi / denom if denom > 0 else 1.0
 
     def _polarity(self, p: str) -> float:
         """Directional binding preference: |H_L - H_R| / (H_L + H_R).
@@ -295,7 +298,7 @@ class AtomicCrystalGrowth:
           2. Compute NPMI affinity
           3. Look up pre-computed ionization from cache
           4. Net energy = NPMI - ionization * mass_factor
-          5. Merge if local maximum AND above threshold
+          5. Viterbi DP finds globally optimal set of non-overlapping binary merges
 
         Args:
             mode: 'all' — all particles can merge; 'atomic' — only single chars
@@ -350,25 +353,39 @@ class AtomicCrystalGrowth:
                 net = npmi - ion * self.cfg.get_mass_factor(len(a), len(b))
                 energies.append(net)
 
-            # Local maximum detection: only merge pairs that are locally strongest
-            merge: List[int] = []
-            for i in range(len(energies)):
-                e = energies[i]; t = thresholds[i]
-                ep = energies[i - 1] if i > 0 else -float('inf')
-                en = energies[i + 1] if i < len(energies) - 1 else -float('inf')
-                if e > t and e >= ep and e >= en: merge.append(i)
+            # Viterbi DP: find globally optimal set of non-overlapping binary merges
+            # dp[i] = best cumulative score for first i particles
+            dp = [0.0] * (n + 1)
+            choice = [0] * (n + 1)  # 0=skip p_{i-1}, 1=merge p_{i-2}+p_{i-1}
 
-            if merge:
+            for i in range(1, n + 1):
+                # Option A: keep p_{i-1} as-is (no merge ending at i-1)
+                dp[i] = dp[i - 1]
+                choice[i] = 0
+
+                # Option B: merge p_{i-2} and p_{i-1}
+                if i >= 2:
+                    e = energies[i - 2]
+                    if e > thresholds[i - 2] * self.cfg.viterbi_relax_factor:  # relaxed threshold
+                        candidate = (dp[i - 2] + e + self.cfg.viterbi_merge_bias)
+                        if candidate > dp[i]:
+                            dp[i] = candidate
+                            choice[i] = 1
+
+            # Backtrack to build new particle sequence
+            np_: List[str] = []
+            i = n
+            while i > 0:
+                if choice[i] == 1:
+                    np_.insert(0, ps[i - 2] + ps[i - 1])
+                    i -= 2
+                else:
+                    np_.insert(0, ps[i - 1])
+                    i -= 1
+
+            if np_ != ps:
                 changed = True
-                np_: List[str] = []; idx = 0; ms = set(merge)
-                while idx < n:
-                    if idx in ms and idx < n - 1:
-                        np_.append(ps[idx] + ps[idx + 1]); idx += 2
-                    else:
-                        np_.append(ps[idx]); idx += 1
-                new_sents.append(np_)
-            else:
-                new_sents.append(ps)
+            new_sents.append(np_)
 
         self.sentences = new_sents
         self.iteration += 1
