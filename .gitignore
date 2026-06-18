@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.whl
+pip-wheel-metadata/
+share/python-wheels/
+MANIFEST
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage*
+coverage.xml
+*.trx
+.tox/
+.cache/
+.outputs/
+outputs/
+nosetests.xml
+junit.xml
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDEs & Project
+.workbuddy/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.ref/
+overview.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+*.log

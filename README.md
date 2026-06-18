@@ -313,7 +313,7 @@ python main.py train
 - `jieba` (only for evaluation/train — `core.py` runs standalone)
 - No other dependencies
 
-### Acknoledgements
+### Acknowledgements
 
 This example article is from [Here](https://mp.weixin.qq.com/s/yryponBqaD0w1ZPI5Al2Gg); it's a deeply insightful speech recently recommended to me by a friend.
 

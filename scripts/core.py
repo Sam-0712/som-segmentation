@@ -10,20 +10,20 @@ statistical forces: NPMI (affinity) drives merging, contextual entropy
   merge if E_net > threshold & is local maximum
 """
 from __future__ import annotations
-import re, sys, time, collections, math, subprocess
+import re, sys, time, collections, math
 from typing import Dict, List, Tuple, Optional, DefaultDict
 
-# ── tabulate 自动安装 ──────────────────────────────────────────────────────────
+# ── tabulate ──────────────────────────────────────────────────────────
 
 def _make_table(rows, headers, **kwargs):
-    """Format a table using tabulate (auto-installed if missing)."""
+    """Format a table using tabulate (must be installed)."""
     try:
         from tabulate import tabulate
     except ImportError:
-        subprocess.check_call(
-            [sys.executable, '-m', 'pip', 'install', 'tabulate', '-q'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        from tabulate import tabulate
+        raise ImportError(
+            "tabulate is required for table output.\n"
+            "Install it with: pip install tabulate"
+        )
     return tabulate(rows, headers=headers, tablefmt='grid', **kwargs)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -100,7 +100,12 @@ class Config:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class AtomicCrystalGrowth:
-    """Unsupervised word segmentation via crystal growth simulation."""
+    """Unsupervised word segmentation via crystal growth simulation.
+
+    The algorithm alternates between 'global' (all particles can merge)
+    and 'atomic' (only single-character particles can merge) modes.
+    Periodic dissolution reverses weak bonds to prevent over-segmentation.
+    """
 
     def __init__(self, text: str, config: Optional[Config] = None) -> None:
         self.cfg = config or Config()
@@ -118,17 +123,26 @@ class AtomicCrystalGrowth:
         self.atom_per: Dict[str, float] = {}           # P(alone) for single chars
         self.order_parameter: float = 0.0              # structural order metric
 
+        # Ionization cache: pre-computed normalized entropy for all particles
+        # Used directly by grow() to avoid redundant _entropy() calls.
+        self.ion_left: Dict[str, float] = {}    # left-context ionization
+        self.ion_right: Dict[str, float] = {}   # right-context ionization
+
     # ────────── Preprocessing ──────────
 
     @staticmethod
     def _preprocess(raw: str) -> List[List[str]]:
         """Split raw text into sentences → atomic particles.
 
-        Segmentation boundaries:  。？！.?!<>\n
+        Sentence boundaries:  。？！.?!<>\\n
         Each sentence is split into particles:
           - Bracket-enclosed expressions: (1), [2.3]
-          - Consecutive ASCII/digits: AI, 2026
-          - Single Chinese characters or punctuation
+          - Consecutive ASCII alphanumeric tokens: AI, 2026
+          - Non-word sequences (punctuation, emoji, etc.)
+          - Fallback: any single non-whitespace character (Chinese chars land here)
+
+        Note: relies on Python 3's default re.UNICODE flag;
+        ``\\w`` matches Unicode word characters including CJK.
         """
         sents = [s.strip() for s in re.split(r'[。？！.?!<>\n]+', raw) if s.strip()]
         result: List[List[str]] = []
@@ -152,10 +166,12 @@ class AtomicCrystalGrowth:
     # ────────── Statistics ──────────
 
     def calc_stats(self) -> None:
-        """Count unigram/bigram frequencies and neighbor distributions.
+        """Count unigram/bigram frequencies, neighbor distributions,
+        and pre-compute ionization cache for grow().
 
-        Also computes the order parameter (mean normalized ionization),
-        which measures structural ordering — higher = more ordered.
+        Ionization = entropy / log2(freq+2), the normalized entropy
+        that resists particle merging. Pre-computing here avoids
+        redundant _entropy() calls in grow()'s inner loop.
         """
         f1: DefaultDict[str, int] = collections.defaultdict(int)
         f2: DefaultDict[Tuple[str, str], int] = collections.defaultdict(int)
@@ -190,19 +206,33 @@ class AtomicCrystalGrowth:
         self.vocab_size = len(f1)
         self.atom_per = {ch: ca[ch] / max(ct[ch], 1) for ch in ct}
 
-        # Order parameter: mean normalized ionization across all particles
+        # Pre-compute ionization cache + order parameter
+        self.ion_left.clear()
+        self.ion_right.clear()
         o_sum = o_cnt = 0.0
         for p, cnt in f1.items():
             if cnt >= 2:
                 hl = self._entropy(self.left_n.get(p, {}), cnt)
                 hr = self._entropy(self.right_n.get(p, {}), cnt)
                 d = math.log2(cnt + 2)
-                ion = ((hl / d if d > 0 else 0) + (hr / d if d > 0 else 0)) / 2
-                o_sum += ion; o_cnt += 1
+                il = hl / d if d > 0 else 0.0
+                ir = hr / d if d > 0 else 0.0
+                self.ion_left[p] = il
+                self.ion_right[p] = ir
+                o_sum += (il + ir) / 2
+                o_cnt += 1
         self.order_parameter = o_sum / max(o_cnt, 1)
 
     def _entropy(self, dist: Dict[str, int], total: int) -> float:
-        """Shannon entropy with Laplace smoothing."""
+        """Laplace-smoothed Shannon entropy over a neighbor distribution.
+
+        Args:
+            dist: neighbor word → co-occurrence count mapping
+            total: total occurrences of the particle (used as smoothing base)
+
+        Unseen vocabulary items receive pseudo-count ``alpha`` for smoothing.
+        For particles with freq < 2, entropy is approximated as 0 (deterministic).
+        """
         a = self.cfg.entropy_alpha
         V = self.vocab_size
         den = total + a * V
@@ -217,7 +247,11 @@ class AtomicCrystalGrowth:
         return e
 
     def _npmi(self, a: str, b: str) -> float:
-        """Normalized Pointwise Mutual Information ∈ [-1, 1]."""
+        """Normalized Pointwise Mutual Information in [-1, 1].
+
+        NPMI(a,b) = PMI(a,b) / -log2(P(a,b))
+        Returns -1.0 when a and b never co-occur.
+        """
         c = self.freq_2.get((a, b), 0)
         if c == 0: return -1.0
         pp = c / self.total_pairs
@@ -227,7 +261,12 @@ class AtomicCrystalGrowth:
         return pmi / (-math.log2(pp)) if pp > 0 else 0.0
 
     def _polarity(self, p: str) -> float:
-        """Directional binding preference: |H_L - H_R| / (H_L + H_R)."""
+        """Directional binding preference: |H_L - H_R| / (H_L + H_R).
+
+        High polarity → particle strongly prefers one direction.
+        Used to lower the merge threshold when the preferred direction
+        matches the actual neighbor being considered.
+        """
         cnt = self.freq_1.get(p, 0)
         if cnt <= 1: return 0.0
         hl = self._entropy(self.left_n.get(p, {}), cnt)
@@ -237,12 +276,26 @@ class AtomicCrystalGrowth:
 
     @staticmethod
     def _is_punct(p: str) -> bool:
+        """Check if a particle is pure punctuation/emoji (no word characters).
+
+        Uses Unicode-aware ``\\w`` (Python 3 default), which matches
+        CJK characters as word characters — so Chinese chars are NOT
+        treated as punctuation. Only symbols, punctuation marks, and
+        emoji are excluded from merging.
+        """
         return bool(re.match(r'^[^\s\w]+$', p))
 
     # ────────── Growth round ──────────
 
     def grow(self, mode: str = 'all', iteration: int = 0) -> bool:
         """Execute one round of crystal growth.
+
+        For each adjacent particle pair (a, b):
+          1. Compute base threshold + atom personality adjustments
+          2. Compute NPMI affinity
+          3. Look up pre-computed ionization from cache
+          4. Net energy = NPMI - ionization * mass_factor
+          5. Merge if local maximum AND above threshold
 
         Args:
             mode: 'all' — all particles can merge; 'atomic' — only single chars
@@ -290,13 +343,10 @@ class AtomicCrystalGrowth:
 
                 thresholds.append(t)
 
-                # Net energy
+                # Net energy: NPMI - ionization * mass_factor
+                # Ionization comes from pre-computed cache (O(1) dict lookup)
                 npmi = self._npmi(a, b)
-                c1, c2 = max(self.freq_1.get(a, 1), 1), max(self.freq_1.get(b, 1), 1)
-                hr = self._entropy(self.right_n.get(a, {}), c1)
-                hl = self._entropy(self.left_n.get(b, {}), c2)
-                d1, d2 = math.log2(c1 + 2), math.log2(c2 + 2)
-                ion = ((hr / d1 if d1 > 0 else 0) + (hl / d2 if d2 > 0 else 0)) / 2
+                ion = (self.ion_right.get(a, 0.0) + self.ion_left.get(b, 0.0)) / 2
                 net = npmi - ion * self.cfg.get_mass_factor(len(a), len(b))
                 energies.append(net)
 
@@ -329,9 +379,13 @@ class AtomicCrystalGrowth:
     def dissolve(self) -> bool:
         """Reverse entropy: split particles whose sub-parts appear independently.
 
-        For each particle of length >= 3, find the internal split point
-        where the two halves have the highest independent frequency.
-        If the independence score exceeds threshold, split.
+        For each particle of length >= dissolution_min_length, find the
+        internal split point where the two halves have the highest
+        independent frequency. If the independence score exceeds
+        dissolution_independence_ratio, split.
+
+        Returns:
+            True if any particle was split
         """
         cfg = self.cfg
         if not cfg.dissolution_enabled or self.iteration < cfg.dissolution_start_round:
@@ -366,16 +420,17 @@ class AtomicCrystalGrowth:
             quiet: bool = False) -> List[List[str]]:
         """Run the full growth process until convergence.
 
-        Alternates between 'all' and 'atomic' modes,
-        runs dissolution every cfg.dissolution_interval rounds,
-        stops when both particle count and order parameter stabilize.
+        Alternates between 'all' and 'atomic' modes (even rounds = all,
+        odd rounds = atomic). Runs dissolution every cfg.dissolution_interval
+        rounds. Converges when both particle count and order parameter
+        stabilize for consecutive rounds.
 
         Args:
             max_iters: maximum iterations (default: cfg.max_iterations)
             quiet: suppress progress output
 
         Returns:
-            segmented sentences
+            Segmented sentences (list of list of particle strings)
         """
         max_iters = max_iters or self.cfg.max_iterations
         init_n = sum(len(s) for s in self.sentences)
@@ -446,8 +501,7 @@ if __name__ == '__main__':
     g = AtomicCrystalGrowth(text)
     r = g.run()
     print(f"\nSample segmentation (first 15 sentences):")
-    tbl = [[str(i+1),
-            ' / '.join(s[:15]) + (' …' if len(s) > 15 else '')]
+    tbl = [[str(i+1), ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')]
            for i, s in enumerate(r[:15])]
     print(_make_table(tbl, headers=['#', 'Segmentation'],
                       colalign=('center', 'left')))

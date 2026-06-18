@@ -10,7 +10,7 @@ Commands:
     train    Leave-one-year-out cross-validation on corpus/corpus.json
 """
 from __future__ import annotations
-import sys, os, subprocess
+import sys, os
 
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     try: sys.stdout.reconfigure(encoding='utf-8')
@@ -19,28 +19,27 @@ if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
 sys.path.insert(0, os.path.dirname(__file__))
 BASE = os.path.dirname(os.path.abspath(__file__))
 
+
 def p(rel: str) -> str:
     return os.path.join(BASE, rel)
 
-# ── 自动安装依赖 ──────────────────────────────────────────────────────────────
 
-def _ensure_reqs() -> None:
-    """Auto-install packages listed in requirements.txt."""
-    req_path = p('requirements.txt')
-    if not os.path.exists(req_path):
-        return
-    with open(req_path, 'r') as f:
-        pkgs = [l.strip() for l in f if l.strip() and not l.startswith('#')]
-    for pkg in pkgs:
+def _check_deps() -> None:
+    """Check that required packages are installed; print friendly message if not."""
+    missing = []
+    for mod, pip_name in [('tabulate', 'tabulate'), ('jieba', 'jieba')]:
         try:
-            __import__(pkg.split('>=')[0].split('=')[0].split('<')[0].strip())
+            __import__(mod)
         except ImportError:
-            print(f"[setup] Installing {pkg} ...")
-            subprocess.check_call(
-                [sys.executable, '-m', 'pip', 'install', pkg, '-q'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            missing.append(pip_name)
+    if missing:
+        print(f"[setup] Missing dependencies: {', '.join(missing)}")
+        print(f"[setup] Run: pip install {' '.join(missing)}")
+        sys.exit(1)
 
-_ensure_reqs()
+
+_check_deps()
+
 
 # ── 命令分发 ──────────────────────────────────────────────────────────────────
 
@@ -54,8 +53,8 @@ def main() -> None:
         g = AtomicCrystalGrowth(text)
         r = g.run()
         print(f"\nSample segmentation (first 15 sentences):")
-        tbl = [[str(i+1),
-                ' / '.join(s[:15]) + (' …' if len(s) > 15 else '')]
+        tbl = [[str(i + 1),
+                ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')]
                for i, s in enumerate(r[:15])]
         print(_make_table(tbl, headers=['#', 'Segmentation'],
                           colalign=('center', 'left')))
@@ -72,6 +71,7 @@ def main() -> None:
 
     else:
         print(__doc__.strip())
+
 
 if __name__ == '__main__':
     main()
