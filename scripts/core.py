@@ -436,12 +436,7 @@ class AtomicCrystalGrowth:
     def run(self, max_iters: Optional[int] = None,
             quiet: bool = False) -> List[List[str]]:
         """Run the full growth process until convergence.
-
-        Alternates between 'all' and 'atomic' modes (even rounds = all,
-        odd rounds = atomic). Runs dissolution every cfg.dissolution_interval
-        rounds. Converges when both particle count and order parameter
-        stabilize for consecutive rounds.
-
+        
         Args:
             max_iters: maximum iterations (default: cfg.max_iterations)
             quiet: suppress progress output
@@ -518,7 +513,5 @@ if __name__ == '__main__':
     g = AtomicCrystalGrowth(text)
     r = g.run()
     print(f"\nSample segmentation (first 15 sentences):")
-    tbl = [[str(i+1), ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')]
-           for i, s in enumerate(r[:15])]
-    print(_make_table(tbl, headers=['#', 'Segmentation'],
-                      colalign=('center', 'left')))
+    tbl = [[str(i+1), ' / '.join(s[:15]) + (' ...' if len(s) > 15 else '')] for i, s in enumerate(r[:15])]
+    print(_make_table(tbl, headers=['#', 'Segmentation'], colalign=('center', 'left')))
