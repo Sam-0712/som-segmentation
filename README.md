@@ -78,7 +78,7 @@ $$
 \text{PMI}(p, q) = \log_2 \frac{P(p, q)}{P(p) \cdot P(q)},\qquad \text{NPMI}(p, q) = \frac{\text{PMI}(p, q)}{-\log_2 P(p, q)}
 $$
 
-NPMI $\in [-1, 1]$. A value close to 1 indicates that $p$ and $q$ almost always appear together. An epsilon guard ($\max(P(p,q),\, 10^{-16})$) prevents division-by-zero when a pair dominates the corpus.
+NPMI $\in [-1, 1]$. A value close to 1 indicates that $p$ and $q$ almost always appear together. An epsilon guard prevents division-by-zero when a pair dominates the corpus.
 
 With Laplace smoothing parameter $\alpha$ and vocabulary size $V$ (number of distinct particles), the **right entropy** of $p$ is:
 
@@ -310,7 +310,7 @@ Running `python main.py eval` yields:
 | Unigram Jaccard                   |    $0.5724$    |     —      |
 | Bigram Jaccard                    |    $0.5851$    |     —      |
 
-The algorithm converges in **$59$ rounds**, reducing $7 348$ atomic particles to $4 623$ ($37.1\%$ reduction). The $\text{F1} = 0.93$ means $~93\%$ of word boundaries agree with jieba — without any dictionary or labeled data. Notably, the granularity ratio ($1.005$) is almost exactly $1$, meaning the algorithm produces nearly the same number of tokens per sentence as jieba.
+The algorithm converges in **$59$ rounds**, reducing $7348$ atomic particles to $4623$ (37.1% reduction). The $\text{F1} = 0.93$ means ~93% of word boundaries agree with jieba — without any dictionary or labeled data. Notably, the granularity ratio ($1.005$) is almost exactly $1$, meaning the algorithm produces nearly the same number of tokens per sentence as jieba.
 
 ### Transfer Learning: Leave-One-Year-Out Cross-Validation
 
@@ -395,22 +395,20 @@ The LOYO experiment varies the *source* of the text (29 years vs 1 year) but kee
 
 **Selected data points** ($k$ = number of sentences, chars = cumulative character count):
 
-| $k$ | Chars | Pct | Precision | Recall | $\text{F1}$ | Rounds | Init $\to$ Final | Red. |
-|:---:|:-----:|:---:|:---------:|:------:|:---:|:------:|:-----------------:|:----:|
-| $5$   | $180$   | $2.4\%$  | $0.5714$ | $0.9677$ | $0.7186$ | $10$ | $180 \to 67$    | $62.8\%$ |
-| $10$  | $402$   | $5.4\%$  | $0.7288$ | $0.9451$ | $0.8230$ | $10$ | $402 \to 192$   | $52.2\%$ |
-| $15$  | $561$   | $7.6\%$  | $0.7868$ | $0.9324$ | $0.8534$ | $11$ | $560 \to 296$   | $47.1\%$ |
-| $30$  | $868$   | $11.7\%$ | $0.8104$ | $0.9209$ | $0.8621$ | $14$ | $865 \to 485$   | $43.9\%$ |
-| $50$  | $1\,560$  | $21.1\%$ | $0.8578$ | $0.9207$ | $0.8881$ | $42$ | $1\,557 \to 895$  | $42.5\%$ |
-| $55$  | $1\,677$  | $22.7\%$ | $0.8975$ | $0.9163$ | $0.9068$ | $10$ | $1\,674 \to 1\,011$ | $39.6\%$ |
-| $80$  | $2\,652$  | $35.9\%$ | $0.9276$ | $0.9032$ | $0.9152$ | $11$ | $2\,636 \to 1\,682$ | $36.2\%$ |
-| $120$ | $3\,843$  | $52.0\%$ | $0.8998$ | $0.9248$ | $0.9121$ | $56$ | $3\,821 \to 2\,314$ | $39.4\%$ |
-| $180$ | $5\,707$  | $77.2\%$ | $0.9258$ | $0.9249$ | $0.9254$ | $54$ | $5\,670 \to 3\,524$ | $37.8\%$ |
-| $240$ | $7\,392$  | $100.0\%$ | $0.9323$ | $0.9270$ | $0.9296$ | $59$ | $7\,348 \to 4\,623$ | $37.1\%$ |
+|  $k$  |  Chars   |    Pct    | Precision |  Recall  | $\text{F1}$ | Rounds |  Init $\to$ Final   |   Red.   |
+| :---: | :------: | :-------: | :-------: | :------: | :---------: | :----: | :-----------------: | :------: |
+|  $5$  |  $180$   |  2.4%  | $0.5714$  | $0.9677$ |  $0.7186$   |  $10$  |    $180 \to 67$     | 62.8%  |
+| $10$  |  $402$   |  5.4%  | $0.7288$  | $0.9451$ |  $0.8230$   |  $10$  |    $402 \to 192$    | 52.2% |
+| $15$  |  $561$   |  7.6%  | $0.7868$  | $0.9324$ |  $0.8534$   |  $11$  |    $560 \to 296$    | 47.1% |
+| $30$  |  $868$   | 11.7%  | $0.8104$  | $0.9209$ |  $0.8621$   |  $14$  |    $865 \to 485$    | 43.9% |
+| $50$  | $1560$ | 21.1%  | $0.8578$  | $0.9207$ |  $0.8881$   |  $42$  |  $1557 \to 895$   | 42.5% |
+| $55$  | $1677$ | 22.7%  | $0.8975$  | $0.9163$ |  $0.9068$   |  $10$  | $1674 \to 1011$ | 39.6% |
+| $80$  | $2652$ | 35.9%  | $0.9276$  | $0.9032$ |  $0.9152$   |  $11$  | $2636 \to 1682$ | 36.2% |
+| $120$ | $3843$ | 52.0%  | $0.8998$  | $0.9248$ |  $0.9121$   |  $56$  | $3821 \to 2314$ | 39.4% |
+| $180$ | $5707$ | 77.2%  | $0.9258$  | $0.9249$ |  $0.9254$   |  $54$  | $5670 \to 3524$ | 37.8% |
+| $240$ | $7392$ | 100.0% | $0.9323$  | $0.9270$ |  $0.9296$   |  $59$  | $7348 \to 4623$ | 37.1% |
 
 ![F1 vs corpus size with regression fit and 95% confidence band](src/pic/scale_f1.png)
-
-**Correlation and regression analysis** (all $48$ data points, $\text{F1}$ regressed on $\log_{10}(\text{chars})$):
 
 | Test | Statistic | Value | $p$ |
 |:-----|:---------:|:-----:|:---------:|
@@ -429,11 +427,11 @@ The $48$ points can be partitioned into early, mid, and late phases to character
 
 | Phase | $k$ range | Chars (approx.) | Mean F1 | $\sigma$ | $\Delta$ (range) | Gain / 100 chars |
 |:------|:---------:|:----------------:|:-------:|:--------:|:-----------------:|:-----------------:|
-| Early | $10$–$50$   | $400$–$1\,560$     | $0.8644$ | $0.0184$ | $0.0652$ | $0.0052$ |
-| Mid   | $60$–$120$  | $1\,919$–$3\,843$  | $0.9061$ | $0.0060$ | $0.0196$ | $0.0008$ |
-| Late  | $130$–$240$ | $4\,065$–$7\,392$  | $0.9247$ | $0.0039$ | $0.0141$ | $0.0004$ |
+| Early | 10–50   | $400$ – $1560$   | $0.8644$ | $0.0184$ | $0.0652$ | $0.0052$ |
+| Mid   | 60–120  | $1919$ – $3843$  | $0.9061$ | $0.0060$ | $0.0196$ | $0.0008$ |
+| Late  | 130–240 | $4065$ – $7392$  | $0.9247$ | $0.0039$ | $0.0141$ | $0.0004$ |
 
-The standard deviation shrinks dramatically across phases: from $0.0184$ (early, noisy) to $0.0039$ (late, stable), confirming that the algorithm converges to a **stable segmentation** as statistics accumulate. The per-$100$-char gain drops by an order of magnitude from early ($0.0052$) to late ($0.0004$), indicating near-saturation beyond $\sim 4\,000$ characters.
+The standard deviation shrinks dramatically across phases: from $0.0184$ (early, noisy) to $0.0039$ (late, stable), confirming that the algorithm converges to a **stable segmentation** as statistics accumulate. The per-100-char gain drops by an order of magnitude from early ($0.0052$) to late ($0.0004$), indicating near-saturation beyond $\sim 4\,000$ characters.
 
 **Effect sizes between phases** (Cohen's $d$):
 
@@ -447,14 +445,14 @@ All inter-phase differences exceed the "large effect" threshold ($|d| > 0.8$) by
 
 **Key thresholds:**
 
-- At $k = 5$ ($180$ characters, $2.4\%$ of the text), $\text{F1}$ is $0.7186$ — recall is high ($0.97$) but precision is only $0.57$, meaning the algorithm severely under-segments (merges nearly everything) because statistical signal is too sparse to distinguish true word boundaries.
-- At $k = 10$ ($402$ characters), $\text{F1}$ already exceeds $0.80$, just $5\%$ of the full text suffices for usable segmentation.
-- $\text{F1}$ crosses $0.90$ at $k = 55$ ($1\,677$ characters, $23\%$ of the text).
-- The total gain from $k = 5$ to $k = 240$ is $+0.2111$; half of this gain ($+0.1056$) is achieved by $k = 15$ ($561$ characters, $8\%$).
+- At $k = 5$ ($180$ characters, 2.4% of the text), $\text{F1}$ is $0.7186$ — recall is high ($0.97$) but precision is only $0.57$, meaning the algorithm severely under-segments (merges nearly everything) because statistical signal is too sparse to distinguish true word boundaries.
+- At $k = 10$ ($402$ characters), $\text{F1}$ already exceeds $0.80$, just 5% of the full text suffices for usable segmentation.
+- $\text{F1}$ crosses $0.90$ at $k = 55$ ($1\,677$ characters, 23% of the text).
+- The total gain from $k = 5$ to $k = 240$ is $+0.2111$; half of this gain ($+0.1056$) is achieved by $k = 15$ ($561$ characters, 8%).
 
 ![Residuals of the double-logarithmic fit vs log10(chars)](src/pic/scale_residuals.png)
 
-The residual plot shows no systematic structure — the double-log model captures the trend without bias, and the largest residuals ($\pm 0.02$) occur in the mid-phase ($k = 80$–$100$), where sentence-content variability introduces local $\text{F1}$ fluctuations unrelated to corpus size.
+The residual plot shows no systematic structure — the double-log model captures the trend without bias, and the largest residuals ($\pm 0.02$) occur in the mid-phase, where sentence-content variability introduces local $\text{F1}$ fluctuations unrelated to corpus size.
 
 > [!IMPORTANT]
 >
@@ -462,7 +460,7 @@ The residual plot shows no systematic structure — the double-log model capture
 >
 > 1. **Correlation**: $\rho = 0.979$ ($p \approx 10^{-33}$) — $\text{F1}$ is almost perfectly monotonically related to $\log(\text{chars})$.
 >
-> 2. **Model fit**: the double-log model achieves $R^2 = 0.9745$ ($p \approx 10^{-19}$) — a single formula $\text{F1} = 0.2530 \cdot \log(\log(\text{chars})) + 0.5910$ explains $97\%$ of the variance.
+> 2. **Model fit**: the double-log model achieves $R^2 = 0.9745$ ($p \approx 10^{-19}$) — a single formula $\text{F1} = 0.2530 \cdot \log(\log(\text{chars})) + 0.5910$ explains 97% of the variance.
 >
 > 3. **Effect size**: Cohen's $d = -6.00$ between early and late phases — the improvement from small to large corpus is not just significant but **gigantic** in magnitude.
 >
