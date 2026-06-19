@@ -9,16 +9,16 @@ On a philosophy-speech test corpus, the algorithm achieves a **boundary $\text{F
 - [How It Works](#how-it-works)
 - [Performance](#performance)
 - [Algorithm Detail](#algorithm-detail)
-  - [$1.$ Problem Setting](#$1$-problem-setting)
-  - [$2.$ Statistical Quantities](#$2$-statistical-quantities)
-  - [$3.$ Net Energy of a Merge](#$3$-net-energy-of-a-merge)
-  - [$4.$ Dynamic Threshold & Damped Annealing](#$4$-dynamic-threshold--damped-annealing)
-  - [$5.$ Atom Personality Adjustment](#$5$-atom-personality-adjustment)
-  - [$6.$ Polarity Modulation](#$6$-polarity-modulation)
-  - [$7.$ Viterbi Optimal Merging](#$7$-viterbi-optimal-merging)
-  - [$8.$ Dissolution (Anti-Entropy)](#$8$-dissolution-anti-entropy)
-  - [$9.$ Order Parameter & Convergence](#$9$-order-parameter--convergence)
-  - [$10.$ Complete Iteration Loop](#$10$-complete-iteration-loop)
+  - [1. Problem Setting](#1-problem-setting)
+  - [2. Statistical Quantities](#2-statistical-quantities)
+  - [3. Net Energy of a Merge](#3-net-energy-of-a-merge)
+  - [4. Dynamic Threshold & Damped Annealing](#4-dynamic-threshold--damped-annealing)
+  - [5. Atom Personality Adjustment](#5-atom-personality-adjustment)
+  - [6. Polarity Modulation](#6-polarity-modulation)
+  - [7. Viterbi Optimal Merging](#7-viterbi-optimal-merging)
+  - [8. Dissolution (Anti-Entropy)](#8-dissolution-anti-entropy)
+  - [9. Order Parameter & Convergence](#9-order-parameter--convergence)
+  - [10. Complete Iteration Loop](#10-complete-iteration-loop)
   - [Hyperparameters](#hyperparameters)
 - [Code](#code)
 - [Quick Start](#quick-start)
@@ -49,20 +49,20 @@ Two merge modes alternate each round: **global** (all particles eligible) and **
 
 ## Performance
 
-### Boundary F$1$ vs Jieba (on CODE$4$)
+### Boundary vs Jieba
 
 The test text is a ~3 000-character philosophy speech (Peking University, Prof. Cheng Lesong) with rich vocabulary, complex sentence structures, and mixed Chinese/English/emoji content. Jieba (unsupervised + dictionary) serves as the baseline.
 
 Running `python main.py eval` yields:
 
 | Metric                            | Crystal Growth |   Jieba    |
-| --------------------------------- | :------------: | :--------: |
-| Precision                         |   $0.9323$    |     —      |
-| Recall                            |   $0.9270$    |     —      |
-| **Boundary F1**                     |   $0.9296$    |  baseline |
+| :-------------------------------: | :------------: | :--------: |
+| Precision                         |    $0.9323$    |     —      |
+| Recall                            |    $0.9270$    |     —      |
+| **Boundary $\text{F1}$**          |    $0.9296$    |  baseline  |
 | Avg particles/sentence            |    $19.26$     |  $19.16$   |
 | Avg token length                  |    $1.599$     |  $1.608$   |
-| Granularity ratio (crystal/jieba) |    $1.005$     |     —      |
+| Granularity ratio                 |    $1.005$     |     —      |
 | Unigram Jaccard                   |    $0.5724$    |     —      |
 | Bigram Jaccard                    |    $0.5851$    |     —      |
 
@@ -76,7 +76,7 @@ Using `scripts/train.py`, a leave-one-year-out (LOYO) experiment was conducted o
 2. **Transfer**: train on the other 29 years, then segment the held-out year.
 
 | Metric          | Self-trained |     Transfer     |
-| --------------- | :----------: | :--------------: |
+| :-------------: | :----------: | :--------------: |
 | Average F1      |   $0.8299$   |    $0.8583$    |
 | Average Δ       |      —       |   $+0.0284$    |
 | Transfer wins   |      —       | $27/30$ |
@@ -85,7 +85,7 @@ Using `scripts/train.py`, a leave-one-year-out (LOYO) experiment was conducted o
 All results:
 
 | Year   | Chars  | F$1$(self) | F$1$(transfer) | Δ         | Trend |
-| :----- | :----- | :--------- | :------------- | :-------- | :---- |
+| :----: | :----: | :--------: | :------------: | :-------: | :---: |
 | 2026 | $1848$ | $0.7950$   | $0.8532$       | $0.0581$  | ↑     |
 | 2025 | $2167$ | $0.8551$   | $0.8734$       | $0.0183$  | ↑     |
 | 2024 | $2024$ | $0.8154$   | $0.8358$       | $0.0203$  | ↑     |
@@ -121,12 +121,12 @@ All results:
 
 We quantify the reliability of the transfer gain using a battery of statistical tests on the 30 paired (self, transfer) $\text{F1}$ values:
 
-| Test                                  | Statistic | Value              | p-value            | Significance |
-| :------------------------------------ | :-------- | :----------------- | :----------------- | :----------- |
-| Paired t-test (2-tailed)              | $t(29)$   | $7.073$            | $8.81 × 10 ^ {-8}$ | $p < 0.001$  |
-| Cohen's d                             | $d$       | $1.291$            | —                  | large effect |
-| Bootstrap 95% CI ($10 000$ resamples) | $[L, U]$  | $[0.0207, 0.0362]$ | —                  | excludes $0$ |
-| Wilcoxon signed-rank test             | $W$       | $15.0$             | $2.55 × 10 ^ {-7}$ | $p < 0.001$  |
+|                 Test                  | Statistic |       Value        |      p-value       | Significance |
+| :-----------------------------------: | :-------: | :----------------: | :----------------: | :----------: |
+|       Paired t-test (2-tailed)        |  $t(29)$  |      $7.073$       | $8.81 × 10 ^ {-8}$ | $p < 0.001$  |
+|               Cohen's d               |    $d$    |      $1.291$       |         —          | large effect |
+| Bootstrap 95% CI ($10 000$ resamples) | $[L, U]$  | $[0.0207, 0.0362]$ |         —          | excludes $0$ |
+|       Wilcoxon signed-rank test       |    $W$    |       $15.0$       | $2.55 × 10 ^ {-7}$ | $p < 0.001$  |
 
 **Key findings:**
 
@@ -359,33 +359,33 @@ Output: final segmented sentences
 
 ### Hyperparameters
 
-| Symbol                     | Parameter                        | Meaning                                  |
-| -------------------------- | -------------------------------- | ---------------------------------------- |
-| $\beta$                    | `mass_base`                      | Mass base (exponential growth factor)    |
-| $T_0$                      | `base_threshold`                 | Initial threshold                        |
-| $\gamma$                   | `threshold_decay`                | Threshold decay per iteration            |
-| $\delta$                   | `damping_rate`                   | Frequency decay rate for oscillation     |
-| $\alpha_{\text{amp}}$      | `damping_amp_rate`               | Amplitude growth per round               |
-| $A_{\max}$                 | `damping_max_amp`                | Maximum oscillation amplitude            |
-| $\theta_{\text{indep}}$    | `atom_independent_threshold`     | High-alone protection threshold          |
-| $\eta_{\text{indep}}$      | `atom_independent_penalty`       | Independent atom penalty                 |
-| $\theta_{\text{restless}}$ | `atom_restless_threshold`        | Low-alone encouragement threshold        |
-| $\eta_{\text{restless}}$   | `atom_restless_bonus`            | Restless atom bonus                      |
-| $\phi_{\text{floor}}$      | `freq_floor`                     | Frequency floor for extra protection     |
-| $\kappa$                   | —                                | Frequency protection weight              |
-| $w_{\text{pol}}$           | `polarity_weight`                | Polarity modulation weight               |
-| $\psi_0$                   | —                                | Polarity activation threshold            |
-| $\alpha$                   | `entropy_alpha`                  | Laplace smoothing for entropy            |
-| $r$                        | `viterbi_relax_factor`           | Threshold relaxation (tunnelling)        |
-| $b_{\text{merge}}$         | `viterbi_merge_bias`             | Per-merge bonus in Viterbi DP            |
-| $K$                        | `dissolution_interval`           | Dissolution interval                     |
-|                            | `dissolution_start_round`        | Warm-up rounds before dissolution        |
-| $L_{\min}$                 | `dissolution_min_length`         | Minimum length for dissolution candidate |
-| $\tau_{\text{diss}}$       | `dissolution_independence_ratio` | Dissolution independence threshold       |
-|                            | `max_iterations`                 | Maximum iterations                       |
-| $n_{\text{plateau}}$       | `particle_plateau_tol`           | Iterations with no particle change       |
-| $n_{\text{window}}$        | `convergence_window`             | Convergence window for order parameter   |
-| $\epsilon_{\mathcal{O}}$   | `convergence_tol`                | Tolerance for order parameter change     |
+|           Symbol           |            Parameter             |                 Meaning                  |
+| :------------------------: | :------------------------------: | :--------------------------------------: |
+|          $\beta$           |           `mass_base`            |  Mass base (exponential growth factor)   |
+|           $T_0$            |         `base_threshold`         |            Initial threshold             |
+|          $\gamma$          |        `threshold_decay`         |      Threshold decay per iteration       |
+|          $\delta$          |          `damping_rate`          |   Frequency decay rate for oscillation   |
+|   $\alpha_{\text{amp}}$    |        `damping_amp_rate`        |        Amplitude growth per round        |
+|         $A_{\max}$         |        `damping_max_amp`         |      Maximum oscillation amplitude       |
+|  $\theta_{\text{indep}}$   |   `atom_independent_threshold`   |     High-alone protection threshold      |
+|   $\eta_{\text{indep}}$    |    `atom_independent_penalty`    |         Independent atom penalty         |
+| $\theta_{\text{restless}}$ |    `atom_restless_threshold`     |    Low-alone encouragement threshold     |
+|  $\eta_{\text{restless}}$  |      `atom_restless_bonus`       |           Restless atom bonus            |
+|   $\phi_{\text{floor}}$    |           `freq_floor`           |   Frequency floor for extra protection   |
+|          $\kappa$          |                —                 |       Frequency protection weight        |
+|      $w_{\text{pol}}$      |        `polarity_weight`         |        Polarity modulation weight        |
+|          $\psi_0$          |                —                 |      Polarity activation threshold       |
+|          $\alpha$          |         `entropy_alpha`          |      Laplace smoothing for entropy       |
+|            $r$             |      `viterbi_relax_factor`      |    Threshold relaxation (tunnelling)     |
+|     $b_{\text{merge}}$     |       `viterbi_merge_bias`       |      Per-merge bonus in Viterbi DP       |
+|            $K$             |      `dissolution_interval`      |           Dissolution interval           |
+|                            |    `dissolution_start_round`     |    Warm-up rounds before dissolution     |
+|         $L_{\min}$         |     `dissolution_min_length`     | Minimum length for dissolution candidate |
+|    $\tau_{\text{diss}}$    | `dissolution_independence_ratio` |    Dissolution independence threshold    |
+|                            |         `max_iterations`         |            Maximum iterations            |
+|    $n_{\text{plateau}}$    |      `particle_plateau_tol`      |    Iterations with no particle change    |
+|    $n_{\text{window}}$     |       `convergence_window`       |  Convergence window for order parameter  |
+|  $\epsilon_{\mathcal{O}}$  |        `convergence_tol`         |   Tolerance for order parameter change   |
 
 These hyperparameters control the "thermodynamics" of the system: lower thresholds or higher mass bases produce more aggressive merging; personality adjustments protect function words; dissolution prevents spurious long compounds; the relax factor and merge bias tune the Viterbi DP's aggressiveness.
 
