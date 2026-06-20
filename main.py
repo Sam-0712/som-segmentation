@@ -27,7 +27,7 @@ def p(rel: str) -> str:
 def _check_deps() -> None:
     """Check that required packages are installed; print friendly message if not."""
     missing = []
-    for mod, pip_name in [('tabulate', 'tabulate'), ('jieba', 'jieba')]:
+    for mod, pip_name in [('tabulate', 'tabulate'), ('jieba', 'jieba'), ('pysbd', 'pysbd')]:
         try:
             __import__(mod)
         except ImportError:

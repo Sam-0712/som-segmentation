@@ -5,13 +5,28 @@ A physics-inspired algorithm that treats text as a particle system.
 Particles (characters/substrings) spontaneously bond based on
 statistical forces: NPMI (affinity) drives merging, contextual entropy
 (ionization) resists it. Viterbi DP + damped annealing + periodic dissolution.
-
-  E_net = NPMI - ionization * mass_factor
-  merge if E_net > threshold & Viterbi-optimal
 """
+
 from __future__ import annotations
 import re, sys, time, collections, math
 from typing import Dict, List, Tuple, Optional, DefaultDict
+
+
+# ── Sentence splitting ────────────────────────────────────────
+
+def split_sentences(raw: str) -> List[str]:
+    """Split raw text into sentences using PySBD for boundary disambiguation.
+
+    PySBD is a rule-based sentence boundary detection algorithm.
+    Falls back to regex-based splitting if PySBD is not installed.
+    
+    """
+    try:
+        import pysbd
+        seg = pysbd.Segmenter(language='zh')
+        return [s.strip() for s in seg.segment(raw) if s.strip()]
+    except ImportError: # Fallback
+        return [s.strip() for s in re.split(r'[。？！.?!<>\n]+', raw) if s.strip()]
 
 # ── tabulate ──────────────────────────────────────────────────────────
 
@@ -145,14 +160,15 @@ class AtomicCrystalGrowth:
     @staticmethod
     def _preprocess(raw: str) -> List[List[str]]:
         """Split raw text into sentences → atomic particles."""
-        sents = [s.strip() for s in re.split(r'[。？！.?!<>\n]+', raw) if s.strip()]
+        sents = split_sentences(raw)
         result: List[List[str]] = []
         for s in sents:
             parts = re.findall(
-                r'(?:[（(\[【{][0-9\-\.]+?[）)\]】}])'
-                r'|[a-zA-Z0-9]+'
-                r'|[^\s\w\(\)\[\]\{\}（）「」【】]+'
-                r'|[^\s]', s)
+                r'(?:[（(\[【{][0-9\-\.]+?[）)\]】}])'   # bracketed numbers
+                r'|[0-9]+(?:\.[0-9]+)?[%‰]?'              # numbers: 2026, 3.14, 1.618%
+                r'|[a-zA-Z0-9]+'                           # English alphanumeric
+                r'|[^\s\w\(\)\[\]\{\}（）「」【】]+'        # Chinese chars, punctuation
+                r'|[^\s]', s)                              # fallback
             cleaned: List[str] = []
             for p in parts:
                 if len(p) > 1 and any(c in p for c in "（([【{") \
@@ -391,7 +407,7 @@ class AtomicCrystalGrowth:
         self.iteration += 1
         return changed
 
-    # ────────── Dissolution (anti-entropy) ──────────
+    # ────────── Dissolution ──────────
 
     def dissolve(self) -> bool:
         """Reverse entropy: split particles whose sub-parts appear independently.
@@ -413,6 +429,10 @@ class AtomicCrystalGrowth:
             np_: List[str] = []
             for p in ps:
                 if len(p) < cfg.dissolution_min_length:
+                    np_.append(p); continue
+                # Protect purely numeric particles (years, decimals, percentages)
+                # from being split by dissolution — they are atomic by definition.
+                if re.match(r'^[0-9]+(?:\.[0-9]+)?[%‰]?$', p):
                     np_.append(p); continue
                 best_k, best_sc = -1, 0.0
                 for k in range(1, len(p)):

@@ -17,7 +17,7 @@ Requires:
     - tabulate (auto-installed via core._make_table)
 """
 from __future__ import annotations
-import sys, json, re, os
+import sys, json, os
 from typing import Dict, List
 if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
     try: sys.stdout.reconfigure(encoding='utf-8')
@@ -28,7 +28,7 @@ if __name__ == '__main__' and __package__ is None:
     sys.path.insert(0, os.path.join(_THIS_DIR, '..'))
 
 import jieba
-from scripts.core import AtomicCrystalGrowth, Config, _make_table
+from scripts.core import AtomicCrystalGrowth, Config, _make_table, split_sentences
 
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
@@ -36,11 +36,8 @@ from scripts.core import AtomicCrystalGrowth, Config, _make_table
 def load_corpus(path: str) -> List[Dict[str, str]]:
     return json.load(open(path, 'r', encoding='utf-8'))
 
-def get_sents(text: str) -> List[str]:
-    return [s.strip() for s in re.split(r'[。？！.?!<>\n]+', text) if s.strip()]
-
 def tokenize_jieba(text: str) -> List[List[str]]:
-    return [list(jieba.cut(s)) for s in get_sents(text)]
+    return [list(jieba.cut(s)) for s in split_sentences(text)]
 
 def boundaries(tokens: List[str]) -> set:
     p, b = 0, []

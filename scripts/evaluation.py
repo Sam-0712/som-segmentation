@@ -94,7 +94,8 @@ def compare(text_path: str, sample_count: int = 20) -> None:
     g = AtomicCrystalGrowth(raw_text)
     crystal_result = g.run(quiet=True)
 
-    raw_sents = [s.strip() for s in re.split(r'[。？！.?!<>\n]+', raw_text) if s.strip()]
+    from scripts.core import split_sentences
+    raw_sents = split_sentences(raw_text)
     jieba_result = [list(jieba.cut(s)) for s in raw_sents]
 
     n = min(len(crystal_result), len(jieba_result))
