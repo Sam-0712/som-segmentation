@@ -295,7 +295,7 @@ These hyperparameters control the "thermodynamics" of the system: lower threshol
 
 ### Boundary vs Jieba
 
-The test text is a ~3 000-character philosophy speech (Peking University, Prof. Cheng Lesong) with rich vocabulary, complex sentence structures, and mixed Chinese/English/emoji content. Jieba (unsupervised + dictionary) serves as the baseline.
+The test text is a philosophy speech.
 
 Running `python main.py eval` yields:
 
@@ -311,6 +311,14 @@ Running `python main.py eval` yields:
 | Bigram Jaccard                    |    $0.5864$    |     —      |
 
 The algorithm converges in **$58$ rounds**, reducing $7470$ atomic particles to $4 775$ ($36.1\%$ reduction). The $\text{F1} \approx 0.9325$ means $\sim 93\%$ of word boundaries agree with jieba — without any dictionary or labeled data. Notably, the granularity ratio ($1.003$) is almost exactly $1$, meaning the algorithm produces nearly the same number of tokens per sentence as jieba.
+
+A fine-grained error analysis of $7295$ boundary positions reveals the nature of the remaining 7% disagreement between Crystal Growth and Jieba. The two systems agree on $6681$ boundaries (91.6%) and disagree on $614$ boundaries. The error distribution is notably balanced, with an over-to-under-segmentation ratio of $1.07:1$, indicating no systematic bias. Phasing errors account for 34.5% of all disagreements, often occurring at compound word boundaries. For example, Crystal segments "北京大学哲学系任教" as "北京/大学/哲学/系任/教", while Jieba produces "北京大学哲学系/任教", with the phasing error centered on "哲学" versus "系". Over-segmentation frequently splits proper nouns and institutional names (e.g., "北京大学" → "北京/大学"); under-segmentation commonly affects verb-object and adjective-adverb combinations (e.g., "很难" → "很/难"); and phasing errors occur at compound boundaries (e.g., "一句话" → "一句/话" vs "一/句话"). The highest-error sentences, containing up to $22$ disagreements, feature multiple proper nouns, academic terminology, complex structures, and mixed registers.
+
+| Error Type | Count | Percentage | Description |
+|:-----------|:-----:|:----------:|:------------|
+| **Over-segmentation** (pure) | $220$ | 3.02% | Crystal cuts where Jieba doesn't |
+| **Under-segmentation** (pure) | $206$ | 2.82% | Jieba cuts where Crystal doesn't |
+| **Phasing Error** | $188$ | 2.58% | Both cut, but positions offset by $\leq 1$ chars |
 
 ### Transfer Learning: Leave-One-Year-Out Cross-Validation
 
@@ -440,7 +448,7 @@ The **cubic polynomial** achieves the highest $R^2 = 0.9938$ and lowest AIC $= -
 
 > [!TIP]
 >
-> Another additional question is: what is *the best upper bound* that can be achieved by optimizing parameters? In the fitting, the sigmoid gives an upper asymptote of approximately 0.97. I suspect (though without any basis) that this might represent the best possible upper limit achievable solely through learning natural language.
+> Another additional question is: what is *the best upper bound* that can be achieved by optimizing parameters? In the fitting, the sigmoid gives an upper asymptote of approximately $0.97$. I suspect (though without any basis) that this might represent the best possible upper limit achievable solely through learning natural language.
 >
 
 ![Left: $\text{F1}$ / Precision / Recall vs log10(chars); Right: convergence rounds and particle reduction](src/pic/scale_detail.png)
@@ -529,11 +537,11 @@ python main.py train
 
 ### `corpus/example.txt`
 
-A ~7 500-character philosophy speech (Peking University, Prof. Cheng Lesong) on Daoism and modern life. Rich in literary vocabulary, complex sentence structures, and mixed Chinese/English/emoji content — a challenging test for unsupervised segmentation.
+A $\sim 7500$-character philosophy speech (Peking University, Prof. Cheng Lesong) on Daoism and modern life. Rich in literary vocabulary, complex sentence structures, and mixed Chinese/English/emoji content — a challenging test for unsupervised segmentation.
 
 ### `corpus/corpus.json`
 
-30 years (1997–2026) of *Southern Weekend* (南方周末) New Year editorials (新年献词), totalling ~45 000 characters. Each entry contains `year`, `title`, and `text`. This corpus is used for the leave-one-year-out transfer learning experiment.
+30 years (1997–2026) of *Southern Weekend* (南方周末) New Year editorials (新年献词), totalling $\sim 45000$ characters. Each entry contains `year`, `title`, and `text`. This corpus is used for the leave-one-year-out transfer learning experiment.
 
 ## Requirements
 
