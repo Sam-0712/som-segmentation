@@ -64,3 +64,5 @@ docs/
 architecture.md
 prd.md
 pytest.ini
+experiments/
+docs/

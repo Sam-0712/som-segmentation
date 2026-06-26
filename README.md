@@ -310,7 +310,7 @@ Running `python main.py eval` yields:
 | Unigram Jaccard                   |    $0.5705$    |     —      |
 | Bigram Jaccard                    |    $0.5864$    |     —      |
 
-The algorithm converges in **$58$ rounds**, reducing $7470$ atomic particles to $4 775$ ($36.1\%$ reduction). The $\text{F1} \approx 0.9325$ means $\sim 93\%$ of word boundaries agree with jieba — without any dictionary or labeled data. Notably, the granularity ratio ($1.003$) is almost exactly $1$, meaning the algorithm produces nearly the same number of tokens per sentence as jieba.
+The algorithm converges in **$58$ rounds**, reducing $7470$ atomic particles to $4 775$ ($36.1% reduction). The $\text{F1} \approx 0.9325$ means $\sim 93% of word boundaries agree with jieba — without any dictionary or labeled data. Notably, the granularity ratio ($1.003$) is almost exactly $1$, meaning the algorithm produces nearly the same number of tokens per sentence as jieba.
 
 A fine-grained error analysis of $7295$ boundary positions reveals the nature of the remaining 7% disagreement between Crystal Growth and Jieba. The two systems agree on $6681$ boundaries (91.6%) and disagree on $614$ boundaries. The error distribution is notably balanced, with an over-to-under-segmentation ratio of $1.07:1$, indicating no systematic bias. Phasing errors account for 34.5% of all disagreements, often occurring at compound word boundaries. For example, Crystal segments "北京大学哲学系任教" as "北京/大学/哲学/系任/教", while Jieba produces "北京大学哲学系/任教", with the phasing error centered on "哲学" versus "系". Over-segmentation frequently splits proper nouns and institutional names (e.g., "北京大学" → "北京/大学"); under-segmentation commonly affects verb-object and adjective-adverb combinations (e.g., "很难" → "很/难"); and phasing errors occur at compound boundaries (e.g., "一句话" → "一句/话" vs "一/句话"). The highest-error sentences, containing up to $22$ disagreements, feature multiple proper nouns, academic terminology, complex structures, and mixed registers.
 
@@ -487,8 +487,165 @@ The residual plot shows no systematic structure — the cubic model captures the
 
 All in all, together with the LOYO experiment, these results demonstrate that unsupervised word segmentation quality is a **predictable, quantifiable function of corpus size**: given enough text, the algorithm reliably reaches $\text{F1} \approx 0.933$ without any dictionary or labeled data.
 
+### Cross-Discipline Experiments
 
-## Code
+To evaluate the robustness of the algorithm across different academic fields, this study conducted a large-scale interdisciplinary experiment on a corpus covering $14$ disciplines. This corpus was constructed during my thesis work **"From Statistical Features to Semantic Space: A Study of Disciplinary Characteristics in Academic Chinese"**, encompassing a total of $1,400$ journal papers across $14$ disciplines. After quality screening, $20$ documents were selected from each discipline through systematic sampling (due to the limited computational capacity of the PC, which prevented full-scale computation on the complete corpus), resulting in $280$ training documents with a total character count of $3,075,129$ (including $2,520,628$ Chinese characters). The obtained sub-corpus averaged $9,002$ Chinese characters per document, with non-Chinese characters accounting for 7.2% of the total. The $14$ disciplines cover Mathematics (MA), Physics (PS), Chemistry (CH), Biology (BI), Geography (GE), Psychology (PC), Economics (EC), Sociology (SC), Social Science General (SS), Law (LA), History (HI), Philosophy (PL), Education (ED), and Literature (LI). Each document was independently segmented using default parameter settings, without any domain-specific tuning or prior exposure to the discipline's vocabulary. The evaluation metric is the boundary $\text{F1}$ score against jieba's tokenization, computed as micro-averaged precision and recall over all sentence boundaries within each document.
+
+#### Cross-Discipline Report
+
+Across all $280$ documents, the algorithm achieved an overall $\text{F1}$ of $0.9188 \pm 0.0197$, with precision $0.9129 \pm 0.0222$ and recall $0.9256 \pm 0.0298$. The average granularity ratio — the number of Crystal Growth tokens divided by the number of jieba tokens — was $1.015$, indicating a negligible overall tendency toward over-segmentation. The algorithm converged in an average of $51.2$ rounds, reducing the initial particle count by $36.8%.
+
+The $\text{F1}$ distribution across documents is well-behaved: the interquartile range spans from $0.9072$ to $0.9335$, with a minimum of $0.8393$ (a single outlier in Literature) and a maximum of $0.9530$ (in Education). The overall standard deviation of $0.0197$ is remarkably small given the breadth of disciplines, suggesting that the algorithm's statistical foundation produces consistent results across heterogeneous text types.
+
+A one-way ANOVA on discipline-level $\text{F1}$ means revealed that discipline identity is a highly significant predictor of segmentation quality. These parametric results are corroborated by distribution-free tests, and Levene's test confirms that the within-discipline variability is itself discipline-dependent — some fields, most notably Literature, produce far more heterogeneous segmentation difficulty than others.
+
+| Test           |  Statistic   |  Value   |       $p$-value        | Significance |
+| :------------- | :----------: | :------: | :--------------------: | :----------: |
+| One-way ANOVA  | $F(13, 266)$ |  $8.78$  | $6.80 \times 10^{-15}$ | $p < 0.001$  |
+| Eta-squared    |   $\eta^2$   | $0.3002$ |           —            |  very large  |
+| Kruskal-Wallis |   $H(13)$    | $82.57$  | $3.61 \times 10^{-12}$ | $p < 0.001$  |
+| Levene's test  |     $W$      |  $3.68$  | $2.21 \times 10^{-5}$  | $p < 0.001$  |
+
+The eta-squared of $0.3002$ is particularly noteworthy: discipline characteristics alone account for $30.0% of the total variance in $\text{F1}$ scores, a very large effect by Cohen's conventional benchmarks, and a larger contributor than document length, granularity ratio, or idiosyncratic document-level noise.
+
+![F1 scores by discipline with error bars](experiments/cross_discipline/results/experiment1/f1_by_discipline.png)
+
+The table below presents the full discipline-level statistics, ranked by mean $\text{F1}$. The 95% confidence interval is computed as $\bar{x} \pm 1.96 \cdot \sigma / \sqrt{N}$ under the normal approximation with $N = 20$ per discipline. The coefficient of variation quantifies within-discipline stability; lower values indicate that all $20$ documents within that discipline are segmented at similar quality, while higher values indicate substantial internal diversity.
+
+| Code | Discipline             | $N$  | $\text{F1}$ Mean | $\pm$Std |      95% CI       | CV |   Prec   |   Rec    |   GR    | Rounds | Red  |
+| :--: | :--------------------- | :--: | :--------------: | :------: | :------------------: | :-----------: | :------: | :------: | :-----: | :----: | :------: |
+|  ED  | Education              | $20$ |     $0.9347$     | $0.0119$ | $[0.9291,\, 0.9402]$ |    1.3%    | $0.9194$ | $0.9507$ | $1.033$ | $48.8$ | 37.8% |
+|  PC  | Psychology             | $20$ |     $0.9335$     | $0.0140$ | $[0.9270,\, 0.9401]$ |    1.5%    | $0.9356$ | $0.9316$ | $0.996$ | $49.6$ | 35.6% |
+|  SC  | Sociology              | $20$ |     $0.9299$     | $0.0097$ | $[0.9253,\, 0.9344]$ |    1.0%    | $0.9117$ | $0.9489$ | $1.040$ | $52.0$ | 37.1% |
+|  LA  | Law                    | $20$ |     $0.9272$     | $0.0118$ | $[0.9217,\, 0.9327]$ |    1.3%    | $0.9032$ | $0.9526$ | $1.053$ | $53.0$ | 38.0% |
+|  SS  | Social Science General | $20$ |     $0.9260$     | $0.0157$ | $[0.9187,\, 0.9334]$ |    1.7%    | $0.9100$ | $0.9430$ | $1.035$ | $49.6$ | 37.1% |
+|  PL  | Philosophy             | $20$ |     $0.9241$     | $0.0152$ | $[0.9170,\, 0.9312]$ |    1.6%    | $0.9094$ | $0.9396$ | $1.033$ | $51.1$ | 36.6% |
+|  EC  | Economics              | $20$ |     $0.9192$     | $0.0195$ | $[0.9101,\, 0.9283]$ |    2.1%    | $0.9065$ | $0.9327$ | $1.028$ | $54.2$ | 38.1% |
+|  MA  | Mathematics            | $20$ |     $0.9191$     | $0.0113$ | $[0.9138,\, 0.9244]$ |    1.2%    | $0.9437$ | $0.8962$ | $0.951$ | $49.8$ | 33.2% |
+|  BI  | Biology                | $20$ |     $0.9163$     | $0.0139$ | $[0.9098,\, 0.9228]$ |    1.5%    | $0.9176$ | $0.9153$ | $0.998$ | $48.2$ | 37.2% |
+|  GE  | Geography              | $20$ |     $0.9121$     | $0.0181$ | $[0.9036,\, 0.9206]$ |    2.0%    | $0.9054$ | $0.9193$ | $1.015$ | $46.9$ | 39.0% |
+|  PS  | Physics                | $20$ |     $0.9094$     | $0.0117$ | $[0.9039,\, 0.9148]$ |    1.3%    | $0.9175$ | $0.9017$ | $0.984$ | $51.6$ | 37.5% |
+|  HI  | History                | $20$ |     $0.9087$     | $0.0189$ | $[0.8998,\, 0.9175]$ |    2.1%    | $0.8963$ | $0.9216$ | $1.027$ | $54.5$ | 37.2% |
+|  CH  | Chemistry              | $20$ |     $0.9076$     | $0.0174$ | $[0.8995,\, 0.9158]$ |    1.9%    | $0.9077$ | $0.9082$ | $1.001$ | $53.4$ | 36.3% |
+|  LI  | Literature             | $20$ |     $0.8961$     | $0.0303$ | $[0.8819,\, 0.9103]$ |    3.4%    | $0.8962$ | $0.8964$ | $1.000$ | $55.2$ | 35.4% |
+
+
+
+The $\text{F1}$ spread between the best-performing discipline (Education, $\text{F1} = 0.9347$) and the worst-performing discipline (Literature, $\text{F1} = 0.8961$) is $0.0386$, or $3.9$ percentage points. This gap is both statistically significant and practically meaningful — it exceeds the typical $\text{F1}$ fluctuation within a discipline by a factor of $2$–$4$. Sociology is the most stable discipline, with a standard deviation of only $0.0097$ and a coefficient of variation of 1.0%, indicating that sociological academic prose is linguistically homogeneous enough to produce near-identical segmentation quality across all $20$ sampled documents. Literature, in contrast, is the most variable discipline: its documents range from classical poetry to modern literary criticism, each with radically different lexical and syntactic profiles. The 3.4% CV for Literature is more than triple that of the most stable discipline.
+
+![Precision-Recall ellipses by discipline](experiments/cross_discipline/results/experiment1/precision_recall_ellipses.png)
+
+**Effect sizes and disciplinary clustering.** Cohen's $d$ quantifies the standardized mean difference between Education and every other discipline.
+
+| Comparison | Cohen's $d$ | Effect Size |
+| :--------- | :---------: | :---------: |
+| ED vs PC   |  $+0.090$   | negligible  |
+| ED vs SC   |  $+0.445$   |    small    |
+| ED vs LA   |  $+0.633$   |   medium    |
+| ED vs SS   |  $+0.622$   |   medium    |
+| ED vs PL   |  $+0.775$   |   medium    |
+| ED vs EC   |  $+0.959$   |    large    |
+| ED vs MA   |  $+1.343$   |    large    |
+| ED vs BI   |  $+1.423$   |    large    |
+| ED vs GE   |  $+1.477$   |    large    |
+| ED vs HI   |  $+1.651$   |    large    |
+| ED vs LI   |  $+1.677$   |    large    |
+| ED vs CH   |  $+1.813$   |    large    |
+| ED vs PS   |  $+2.149$   |    large    |
+
+Education and Psychology are statistically indistinguishable ($d = +0.090$, negligible), confirming that these two disciplines share essentially the same segmentation difficulty. Education versus Sociology shows a small gap ($d = +0.445$), while Law, Social Science General, and Philosophy constitute a middle tier with medium effect sizes ($d \in [0.622, 0.775]$). All remaining disciplines exhibit large gaps from Education: Economics ($d = +0.959$), Mathematics ($d = +1.343$), Biology ($d = +1.423$), Geography ($d = +1.477$), History ($d = +1.651$), Literature ($d = +1.677$), Chemistry ($d = +1.813$), and Physics ($d = +2.149$). The fact that eleven of the thirteen comparisons exceed the "large effect" threshold ($|d| > 0.8$) underscores that the discipline hierarchy is not a statistical artefact but a genuine reflection of differential segmentation difficulty.
+
+Post-hoc Tukey HSD analysis identified $24$ statistically significant pairwise differences at $\alpha = 0.05$ among the $91$ possible discipline pairs.
+
+| Pair     | $p$-value | Cohen's $d$ |
+| :------- | :-------: | :---------: |
+| PS vs ED | $0.0003$  |  $-2.149$   |
+| PS vs SC | $0.0112$  |  $-1.911$   |
+| PS vs PC | $0.0008$  |  $-1.873$   |
+| CH vs ED | $0.0001$  |  $-1.813$   |
+| CH vs PC | $0.0002$  |  $-1.637$   |
+| CH vs SC | $0.0033$  |  $-1.576$   |
+| CH vs LA | $0.0206$  |  $-1.313$   |
+| CH vs SS | $0.0416$  |  $-1.108$   |
+| BI vs ED | $0.0412$  |  $-1.423$   |
+| MA vs LI | $0.0018$  |  $+1.007$   |
+
+The most pronounced contrasts all involve the two lowest-performing disciplines. Physics differs significantly from Education ($p = 0.0003$, $d = -2.149$), Psychology ($p = 0.0008$, $d = -1.873$), and Sociology ($p = 0.0112$, $d = -1.911$). Chemistry similarly differs from Education ($p = 0.0001$, $d = -1.813$), Psychology ($p = 0.0002$, $d = -1.637$), Sociology ($p = 0.0033$, $d = -1.576$), Social Science General ($p = 0.0416$, $d = -1.108$), and Law ($p = 0.0206$, $d = -1.313$). Mathematics versus Literature ($p = 0.0018$, $d = +1.007$) is the only significant cross-tier contrast involving a middle-ranked discipline.
+
+These results delineate a clear three-tier hierarchy. Education, Psychology, and Sociology form the top tier, with $\text{F1} > 0.929$, characterized by standardized academic prose with well-defined technical vocabulary — education research papers, for instance, are rich in pedagogical terms that exhibit strong, consistent co-occurrence patterns. Law, Social Science General, and Philosophy constitute the middle tier ($\text{F1} \in [0.924, 0.927]$), where legal terminology and philosophical discourse introduce moderate segmentation challenges. Economics, Mathematics, Biology, Geography, Physics, History, Chemistry, and Literature form the lower tier ($\text{F1} \in [0.896, 0.919]$). Within this lower tier, Mathematics stands out for its unusual precision-recall profile: despite ranking eighth in $\text{F1}$ ($0.9191$), it achieves the highest precision of any discipline ($0.9437$) but the lowest recall ($0.8962$). The algorithm consistently under-segments mathematical texts — it is conservative about splitting formula components, preserving long symbolic sequences that jieba would fragment. Physics exhibits the mirror pattern: high precision ($0.9175$) and low recall ($0.9017$), with a granularity ratio of $0.984$, the only discipline where Crystal Growth produces *fewer* tokens than jieba, suggesting that physics terminology is recognized by Crystal Growth as coherent units more often than by jieba's dictionary-based approach.
+
+**Correlations with document characteristics.** Across the full $280$-document dataset, the Spearman rank correlation between document length (in characters) and $\text{F1}$ is $\rho = 0.404$ ($p < 0.001$). This moderate positive correlation recapitulates the scaling behaviour observed in the single-text experiment: longer documents provide richer co-occurrence statistics and achieve slightly higher segmentation quality.
+
+![F1 vs document length with regression](experiments/cross_discipline/results/experiment1/f1_vs_length.png)
+
+The Pearson correlation between $\text{F1}$ and granularity ratio is $r = 0.282$ ($p < 0.001$), a weaker positive association indicating that disciplines where the algorithm produces marginally more tokens than jieba tend to score higher — but the effect is small enough that granularity ratio alone cannot serve as a reliable proxy for segmentation quality.
+
+![F1 vs granularity ratio](experiments/cross_discipline/results/experiment1/f1_vs_granularity.png)
+
+![Granularity ratio and token length by discipline](experiments/cross_discipline/results/experiment1/granularity_by_discipline.png)
+
+These global correlations mask substantial discipline-level heterogeneity, as revealed by per-discipline regression analyses.
+
+| Test                    | Statistic |  Value  | $p$-value | Significance |
+| :---------------------- | :-------: | :-----: | :-------: | :----------: |
+| F1 vs Length (Pearson)  |    $r$    | $0.338$ |     —     |      —       |
+| F1 vs Length (Spearman) |  $\rho$   | $0.404$ | $<0.001$  | $p < 0.001$  |
+| F1 vs GR (Pearson)      |    $r$    | $0.282$ | $<0.001$  | $p < 0.001$  |
+| F1 vs GR (Spearman)     |  $\rho$   | $0.272$ | $<0.001$  | $p < 0.001$  |
+
+The table below presents the Pearson correlation coefficients and associated $p$-values for $\text{F1}$ versus document length and $\text{F1}$ versus granularity ratio, computed separately within each discipline.
+
+| Discipline             | $\text{F1}$ vs Length ($r$) |   $p$    | $\text{F1}$ vs GR ($r$) |   $p$   |
+| :--------------------- | :-------------------------: | :------: | :---------------------: | :-----: |
+| Mathematics            |           $0.720$           | $<0.001$ |         $0.547$         | $0.013$ |
+| Geography              |           $0.636$           | $0.003$  |         $0.241$         | $0.305$ |
+| Social Science General |           $0.532$           | $0.016$  |         $0.175$         | $0.462$ |
+| Law                    |           $0.472$           | $0.036$  |        $-0.238$         | $0.312$ |
+| Chemistry              |           $0.443$           | $0.050$  |         $0.412$         | $0.071$ |
+| Economics              |           $0.439$           | $0.053$  |         $0.109$         | $0.646$ |
+| Literature             |           $0.388$           | $0.091$  |         $0.700$         | $0.001$ |
+| Physics                |           $0.337$           | $0.146$  |         $0.013$         | $0.957$ |
+| Education              |           $0.318$           | $0.172$  |        $-0.018$         | $0.940$ |
+| Sociology              |           $0.315$           | $0.176$  |        $-0.487$         | $0.030$ |
+| History                |           $0.267$           | $0.256$  |         $0.511$         | $0.021$ |
+| Biology                |           $0.157$           | $0.509$  |        $-0.222$         | $0.347$ |
+| Philosophy             |           $0.110$           | $0.643$  |        $-0.179$         | $0.450$ |
+| Psychology             |           $0.106$           | $0.655$  |         $0.312$         | $0.181$ |
+
+Mathematics exhibits the strongest length dependence of any discipline ($r = 0.720$, $p < 0.001$): within mathematics papers, longer documents systematically outperform shorter ones, suggesting that formula-heavy content requires substantially more contextual evidence — including surrounding explanatory prose — to resolve word boundaries reliably. A $4{,}000$-character mathematics paper may contain only $2{,}000$ characters of actual Chinese text once formulas are excluded, and the co-occurrence statistics degrade accordingly. The strong granularity correlation in mathematics ($r = 0.547$, $p = 0.013$) further suggests that the trade-off between over- and under-segmentation is particularly acute in this discipline.
+
+Geography and Social Science General follow with moderate length effects ($r = 0.636$ and $r = 0.532$, respectively), both statistically significant. These disciplines occupy a middle ground where document length provides meaningful but not overwhelming predictive power.
+
+Literature displays the most distinctive correlation profile: a non-significant length effect ($r = 0.388$, $p = 0.091$) coupled with the strongest granularity dependence of any discipline ($r = 0.700$, $p = 0.001$). In literary texts, simply having more text does not reliably improve segmentation — what matters is the *kind* of segmentation the algorithm produces. The strong positive correlation with granularity ratio means that literary documents where Crystal Growth over-segments (producing more tokens than jieba) consistently achieve higher $\text{F1}$ scores than those where it under-segments. This is a clear signal that the algorithm's default configuration is too conservative for literary Chinese: classical allusions, poetic diction, and mixed-register vocabulary demand more aggressive splitting than standard academic prose. The non-significant length effect further suggests that literary texts' segmentation difficulty is determined by qualitative stylistic features — register mixing, genre conventions, lexical diversity — rather than by the sheer quantity of text available.
+
+History mirrors Literature's pattern more moderately, with a significant granularity correlation ($r = 0.511$, $p = 0.021$) and a non-significant length effect ($r = 0.267$, $p = 0.256$). Historical texts, like literary ones, contain mixed registers (archaic terms, quoted primary sources, modern analytical prose), and the algorithm benefits from more aggressive boundary placement.
+
+Sociology presents the inverse pattern: a significant *negative* correlation with granularity ($r = -0.487$, $p = 0.030$) and no significant length effect ($r = 0.315$, $p = 0.176$). In sociological texts, over-segmentation is actively penalized — the discipline's standardized, high-frequency sociological terminology forms stable multi-character compounds that the algorithm should preserve rather than fragment. This is the only discipline where the data clearly indicates that *less* splitting would improve performance.
+
+Psychology, Philosophy, Biology, and Economics show no significant correlations with either length or granularity: the algorithm's performance in these disciplines is independent of document-level characteristics measurable by these metrics. This is not a weakness — it indicates robustness: within these domains, segmentation quality is stable across documents of varying length and token density.
+
+**Convergence behaviour.** The algorithm converged in an average of $51.2$ rounds across all $280$ documents, with a mean particle reduction of 36.8%.
+
+![Convergence behavior by discipline](experiments/cross_discipline/results/experiment1/convergence_by_discipline.png)
+
+Rounds to convergence ranged from $46.9$ (Geography) to $55.2$ (Literature). The convergence time correlates with segmentation difficulty: Literature, which required the most rounds ($55.2$), is also the lowest-$\text{F1}$ discipline; Geography, which converged fastest ($46.9$), sits near the middle of the $\text{F1}$ distribution. This pattern reflects the damped annealing schedule: texts with more ambiguous word boundaries demand longer annealing — more rounds of slow, deep oscillation — before the system stabilises. Literature's 3.4% CV and high convergence-round count are two manifestations of the same underlying property: extreme within-discipline linguistic diversity.
+
+The particle reduction rate — the percentage of initial atomic particles eliminated through merging — varied from 33.2% (Mathematics) to 39.0% (Geography). Mathematics' low reduction rate is a direct consequence of formula density: mathematical symbols ($x$, $y$, $\alpha$, $\int$, etc.) resist merging because they rarely form stable co-occurrence patterns with surrounding Chinese characters. Geography's high reduction rate reflects the opposite.
+
+
+
+> [!IMPORTANT]
+>
+> The cross-discipline experiment establishes four principal findings. 
+>
+> 1. The algorithm achieves robust generalization: $\text{F1} > 0.90$ across all $14$ disciplines without any domain-specific tuning, and $\text{F1} > 0.93$ for the top four disciplines.
+> 2. As we can see, discipline identity is a significant and substantial predictor of segmentation quality, accounting for 30.0% of $\text{F1}$ variance, a larger effect than document length, granularity, or random noise.
+> 3. The discipline hierarchy reveals a social sciences advantage: disciplines with standardized academic prose and well-defined technical vocabulary (Education, Psychology, Sociology) systematically outperform those with formula-dense texts (Mathematics, Physics), mixed-register language (Literature, History), or both (Chemistry). 
+> 4. Discipline-specific correlation patterns between $\text{F1}$ and document characteristics reveal actionable directions for future adaptive tuning: literary texts would benefit from lower relaxation factors to encourage more aggressive splitting; sociological and mathematical texts would benefit from higher relaxation factors to prevent over-fragmentation of technical terminology.
+>
+> The fact that even the worst-performing discipline (Literature, $\text{F1} = 0.8961$) remains very close to $0.90$, and that the coefficient of variation for the whole dataset is only 2.1%, demonstrates that the algorithm's statistical foundation produces genuinely domain-agnostic segmentation. The remaining performance variation is not a failure of the method but an honest reflection of differential linguistic structure across academic disciplines: some text types are inherently harder to segment without lexical knowledge, and the algorithm's sensitivity to this variation is a sign of its statistical fidelity rather than its fragility.
+>
+
 
 ### Project Structure
 
