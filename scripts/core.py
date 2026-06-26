@@ -164,11 +164,13 @@ class AtomicCrystalGrowth:
         result: List[List[str]] = []
         for s in sents:
             parts = re.findall(
-                r'(?:[（(\[【{][0-9\-\.]+?[）)\]】}])'   # bracketed numbers
-                r'|[0-9]+(?:\.[0-9]+)?[%‰]?'              # numbers: 2026, 3.14, 1.618%
-                r'|[a-zA-Z0-9]+'                           # English alphanumeric
-                r'|[^\s\w\(\)\[\]\{\}（）「」【】]+'        # Chinese chars, punctuation
-                r'|[^\s]', s)                              # fallback
+                r'[ ]+'                                     # continuous spaces
+                r'|[0-9]+(?:\.[0-9]+)?[%‰]?'                # numbers
+                r'|[a-zA-Z]+(?:\'[a-zA-Z]+)?'               # English words with contractions
+                r'|[（(\[【{][0-9\-\.]+?[）)\]】}]'          # bracketed numbers
+                r'|[^\s\w]'                                 # single punctuation/symbol
+                r'|[\u4e00-\u9fff]'                         # Chinese characters
+                r'|[^\s]', s)                               # fallback
             cleaned: List[str] = []
             for p in parts:
                 if len(p) > 1 and any(c in p for c in "（([【{") \
@@ -339,9 +341,11 @@ class AtomicCrystalGrowth:
                 a, b = ps[i], ps[i + 1]
                 t = self.cfg.get_threshold(iteration)
 
-                # Skip: atomic mode with multi-char particles, or punctuation
+                # Skip: atomic mode with multi-char particles, or punctuation, or spaces
+                # Spaces are preserved as independent tokens to match jieba's behavior
                 if (mode == 'atomic' and (len(a) > 1 or len(b) > 1)) \
-                        or self._is_punct(a) or self._is_punct(b):
+                        or self._is_punct(a) or self._is_punct(b) \
+                        or a.strip() == '' or b.strip() == '':
                     energies.append(-float('inf')); thresholds.append(t); continue
 
                 # Atom personality adjustment
@@ -433,6 +437,10 @@ class AtomicCrystalGrowth:
                 # Protect purely numeric particles (years, decimals, percentages)
                 # from being split by dissolution — they are atomic by definition.
                 if re.match(r'^[0-9]+(?:\.[0-9]+)?[%‰]?$', p):
+                    np_.append(p); continue
+                # Protect English words (with optional contractions) from being split
+                # English words are treated as atomic units to match jieba's behavior
+                if re.match(r'^[a-zA-Z]+(?:\'[a-zA-Z]+)?$', p):
                     np_.append(p); continue
                 best_k, best_sc = -1, 0.0
                 for k in range(1, len(p)):
